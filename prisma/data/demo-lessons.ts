@@ -29,8 +29,12 @@ export type DemoQuestion =
 
 export type DemoLesson = {
   number: number;
-  /** Textbook chapter index, 0-based (see TEXTBOOK_CHAPTERS): which section/quarter the lesson belongs to */
-  section: 0 | 1 | 2 | 3 | 4 | 5 | 6;
+  /** Grade the lesson belongs to (default 5). Grade 6 lessons live in demo-lessons-6.ts */
+  grade?: 5 | 6;
+  /** Textbook chapter index, 0-based (see TEXTBOOK_CHAPTERS, or TEXTBOOK_6_CHAPTERS for grade 6): which section/quarter the lesson belongs to */
+  section: number;
+  /** Printed pages of the grade 6 textbook (186.pdf) that the lesson covers; a PDF link is attached to the lesson */
+  textbookPages?: [number, number];
   title: string;
   description: string;
   researchQuestion?: string;

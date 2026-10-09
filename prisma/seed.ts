@@ -18,7 +18,9 @@ import { processUpload } from "../src/features/resources/server/process";
 import { extractSlideImages } from "../src/features/resources/server/pptx";
 import { storage } from "../src/server/storage";
 import { getDefinition } from "../src/features/games/definitions";
-import { ARTIFACT_CROPS, DEMO_LESSONS } from "./data/demo-lessons";
+import { ARTIFACT_CROPS, DEMO_LESSONS, type DemoLesson } from "./data/demo-lessons";
+import { DEMO_LESSONS_6 } from "./data/demo-lessons-6";
+import { TEXTBOOK_6_CHAPTERS, TEXTBOOK_6_FILE, TEXTBOOK_6_KEY, TEXTBOOK_6_NAME, TEXTBOOK_6_TITLE } from "./data/textbook-6";
 import { TEXTBOOK_CHAPTERS } from "./data/textbook";
 import { spreadGameItem } from "./data/spread";
 import { importTextbook, questionCreate, textbookQuestions } from "./textbook-import";
@@ -117,21 +119,46 @@ async function seedArtifactImages() {
 }
 
 async function seedDemoLessons(users: { ADMIN: string; MODERATOR: string }) {
+  await seedGradeLessons(users, 5, DEMO_LESSONS, TEXTBOOK_CHAPTERS);
+  await seedGradeLessons(users, 6, DEMO_LESSONS_6, TEXTBOOK_6_CHAPTERS);
+}
+
+/** Stores the grade 6 textbook once and returns what a lesson needs to link a page range of it */
+async function grade6Textbook() {
+  const store = storage();
+  const file = path.join(MATERIALS_DIR, TEXTBOOK_6_FILE);
+  let size = (await store.stat(TEXTBOOK_6_KEY))?.size ?? null;
+  if (size === null && existsSync(file)) {
+    const data = readFileSync(file);
+    await store.put(TEXTBOOK_6_KEY, data, "application/pdf");
+    size = data.byteLength;
+  }
+  if (size === null) console.warn(`  ! ${TEXTBOOK_6_FILE} not found in ${MATERIALS_DIR} — textbook links skipped`);
+  return size;
+}
+
+async function seedGradeLessons(
+  users: { ADMIN: string; MODERATOR: string },
+  grade: 5 | 6,
+  lessons: DemoLesson[],
+  chapters: { title: string; quarter: 1 | 2 | 3 | 4 }[],
+) {
   const subject = await db.subject.findUniqueOrThrow({ where: { slug: "history-kz" } });
   const quarters = await db.quarter.findMany({
-    where: { curriculum: { subjectId: subject.id, grade: { number: 5 }, academicYear: ACADEMIC_YEAR } },
+    where: { curriculum: { subjectId: subject.id, grade: { number: grade }, academicYear: ACADEMIC_YEAR } },
   });
+  const textbook6Size = grade === 6 ? await grade6Textbook() : null;
   // A demo lesson lives in the section of its textbook chapter (the chapter's quarter and title)
   const sectionFor = async (chapterIndex: number) => {
-    const chapter = TEXTBOOK_CHAPTERS[chapterIndex];
+    const chapter = chapters[chapterIndex];
     const quarterId = quarters.find((q) => q.number === chapter.quarter)!.id;
     const existing = await db.section.findFirst({ where: { quarterId, title: chapter.title } });
     if (existing) return existing.id;
-    const sortOrder = TEXTBOOK_CHAPTERS.filter((c) => c.quarter === chapter.quarter).indexOf(chapter);
+    const sortOrder = chapters.filter((c) => c.quarter === chapter.quarter).indexOf(chapter);
     return (await db.section.create({ data: { quarterId, title: chapter.title, sortOrder } })).id;
   };
 
-  for (const demo of DEMO_LESSONS) {
+  for (const demo of lessons) {
     const sectionId = await sectionFor(demo.section);
     // Matched by title: the textbook import renumbers lessons into book order
     if (await db.lesson.findFirst({ where: { sectionId, title: demo.title } })) {
@@ -174,6 +201,28 @@ async function seedDemoLessons(users: { ADMIN: string; MODERATOR: string }) {
         console.warn(`    ! ${demo.presentation} not found in ${MATERIALS_DIR}`);
       }
     }
+    if (demo.textbookPages && textbook6Size !== null) {
+      const [from, to] = demo.textbookPages;
+      await db.resource.create({
+        data: {
+          lessonId: lesson.id,
+          type: "ADDITIONAL",
+          title: `Оқулық: ${from === to ? `${from}-бет` : `${from}–${to}-беттер`}`,
+          description: TEXTBOOK_6_TITLE,
+          sortOrder: sort++,
+          status: demo.status,
+          createdById: users.MODERATOR,
+          fileUrl: TEXTBOOK_6_KEY,
+          originalName: TEXTBOOK_6_NAME,
+          mimeType: "application/pdf",
+          fileSize: textbook6Size,
+          previewKind: "PDF",
+          previewPages: [TEXTBOOK_6_KEY],
+          pageCount: to - from + 1,
+          content: { pdfPage: from },
+        },
+      });
+    }
     if (demo.tasks?.length) {
       await db.resource.create({
         data: { lessonId: lesson.id, type: "TASK", title: "Сабақ тапсырмалары", sortOrder: sort++, createdById: users.MODERATOR, status: demo.status, content: { tasks: demo.tasks } },
@@ -190,7 +239,7 @@ async function seedDemoLessons(users: { ADMIN: string; MODERATOR: string }) {
       });
     }
     // The §1–10 test collection (.docx) is attached once, to the introductory lesson
-    if (demo.number === 1) {
+    if (demo.number === 1 && grade === 5) {
       const docx = "5 сынып Қазақстан тарихы мектеп 2017, 8-48 беттер.docx";
       const file = path.join(MATERIALS_DIR, docx);
       if (existsSync(file)) {
