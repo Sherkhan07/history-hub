@@ -3,8 +3,6 @@ import { notFound } from "next/navigation";
 import { loadViewableLesson } from "@/features/lessons/server/access";
 import { FocusBar } from "@/components/layout/focus-bar";
 import { LocalGame } from "@/features/quizzes/components/local-players";
-import { LaunchForClassButton } from "@/features/sessions/components/launch-button";
-import { getDefinition } from "@/features/games/definitions";
 import { getDictionary } from "@/i18n";
 import { fmt } from "@/i18n/format";
 
@@ -24,8 +22,7 @@ export default async function GamePage({ params }: PageProps<"/teacher/lesson/[i
         title={game.title}
         backLabel={t.lesson.toLesson}
         subtitle={`${t.gameTypes[game.type]} · ${fmt(t.lesson.lessonCrumb, { n: lesson.lessonNumber, title: lesson.title })}`}
-        actions={<LaunchForClassButton lessonId={lesson.id} gameId={game.id} title={game.title} variant="outline" teamOnly={getDefinition(game.type).teamOnly} />}
-      />
+             />
       <main className="mx-auto max-w-5xl px-4 py-8 sm:px-8">
         {game.instructions && <p className="mb-6 text-muted-foreground">{game.instructions}</p>}
         <LocalGame game={{ id: game.id, type: game.type, title: game.title, items: game.items }} backHref={`/teacher/lesson/${lesson.id}`} />

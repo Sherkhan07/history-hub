@@ -12,7 +12,6 @@ import { MaterialsGrid } from "@/features/lessons/components/materials-grid";
 import { DurationPill, LearningObjectiveBadge, LessonBreadcrumb } from "@/features/lessons/components/lesson-header";
 import { FavoriteButton } from "@/features/lessons/components/favorite-button";
 import { LessonCover } from "@/features/curriculum/components/lesson-card";
-import { LaunchForClassButton } from "@/features/sessions/components/launch-button";
 import { ModerationStatusBadge } from "@/components/common/badges";
 import { EmptyState } from "@/components/common/empty-state";
 import { Icon } from "@/components/common/icon";
@@ -82,7 +81,7 @@ export default async function LessonPage({ params }: PageProps<"/teacher/lesson/
 
               <div className="mt-6 flex flex-wrap items-center gap-2">
                 <DurationPill minutes={lesson.durationMinutes} />
-                <span className="rounded-full bg-card px-3 py-1 text-sm text-muted-foreground">{lesson.language === "kk" ? t.common.kazakh : t.common.russian}</span>
+                <span className="rounded-full bg-card px-3 py-1 text-sm text-muted-foreground">{crumbs.subjectName}</span>
               </div>
             </div>
 
@@ -166,7 +165,6 @@ export default async function LessonPage({ params }: PageProps<"/teacher/lesson/
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <Button asChild variant="outline"><Link href={`/teacher/lesson/${lesson.id}/quiz/${q.id}`}><Play /> {t.lesson.playHere}</Link></Button>
-                  <LaunchForClassButton lessonId={lesson.id} quizId={q.id} title={q.title} />
                 </div>
               </div>
             ))}
@@ -184,7 +182,6 @@ export default async function LessonPage({ params }: PageProps<"/teacher/lesson/
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <Button asChild variant="outline"><Link href={`/teacher/lesson/${lesson.id}/game/${g.id}`}><Gamepad2 /> {t.lesson.playHere}</Link></Button>
-                    <LaunchForClassButton lessonId={lesson.id} gameId={g.id} title={g.title} teamOnly={def.teamOnly} />
                   </div>
                 </div>
               );

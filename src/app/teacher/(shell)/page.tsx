@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, Megaphone, Play } from "lucide-react";
 import { getI18n } from "@/i18n";
@@ -29,9 +30,20 @@ export default async function TeacherDashboard() {
 
   return (
     <div className="space-y-14">
-      <section className="animate-fade-up">
-        <p className="text-muted-foreground">{fmt(t.teacher.welcome, { name: firstName })}</p>
-        <h1 className="mt-1 text-4xl font-semibold sm:text-5xl">{t.teacher.todayQuestion}</h1>
+      <section className="grid items-center gap-8 animate-fade-up md:grid-cols-[1fr_minmax(0,360px)]">
+        <div>
+          <p className="text-muted-foreground">{fmt(t.teacher.welcome, { name: firstName })}</p>
+          <h1 className="mt-1 text-4xl font-semibold sm:text-5xl">{t.teacher.todayQuestion}</h1>
+          <p className="mt-4 max-w-xl text-lg text-muted-foreground">{t.teacher.historyCaption}</p>
+        </div>
+        <div className="relative overflow-hidden rounded-3xl border bg-card shadow-soft">
+          <Image src="/hero-history.webp" alt="" width={560} height={600} priority sizes="(min-width: 768px) 360px, 100vw" className="h-auto w-full object-cover" />
+        </div>
+      </section>
+
+      <section aria-labelledby="classes">
+        <h2 id="classes" className="mb-4 text-lg font-medium">{t.teacher.classes}</h2>
+        <GradeSelector href="/teacher/subjects?grade={g}" />
       </section>
 
       {settings["platform.announcement"] && (
@@ -75,11 +87,6 @@ export default async function TeacherDashboard() {
             <SubjectCard key={s.id} subject={s} counts={counts[s.id]} />
           ))}
         </div>
-      </section>
-
-      <section aria-labelledby="grades">
-        <h2 id="grades" className="mb-4 text-lg font-medium">{t.teacher.myGrades}</h2>
-        <GradeSelector href="/teacher/subjects?grade={g}" />
       </section>
 
       <section aria-labelledby="recent">

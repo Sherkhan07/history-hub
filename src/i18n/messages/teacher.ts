@@ -4,6 +4,7 @@ export const teacherMessages = defineMessages({
   ru: {
     teacher: {
       welcome: "Добро пожаловать, {name}", todayQuestion: "Что сегодня проводим?", myGrades: "Мои классы",
+      historyCaption: "История — это память народа. Выберите класс, чтобы начать урок.", classes: "Классы",
       continueLast: "Продолжить последний урок", recentlyViewed: "Недавно просмотренные", favorites: "Избранное", all: "Все",
       noFavorites: "Отмечайте уроки звёздочкой — они появятся здесь.", noRecent: "Откройте любой урок — он появится здесь.",
       chooseSubject: "Выберите предмет", chooseGrade: "Выберите класс", openLesson: "Открыть урок",
@@ -79,6 +80,7 @@ export const teacherMessages = defineMessages({
   kk: {
     teacher: {
       welcome: "Қош келдіңіз, {name}", todayQuestion: "Бүгін қандай сабақ өткіземіз?", myGrades: "Менің сыныптарым",
+      historyCaption: "Тарих — халқымыздың жадысы. Сабақ бастау үшін сыныпты таңдаңыз.", classes: "Сыныптар",
       continueLast: "Соңғы сабақты жалғастыру", recentlyViewed: "Жақында қаралғандар", favorites: "Таңдаулылар", all: "Барлығы",
       noFavorites: "Сабақтарды жұлдызшамен белгілеңіз — олар осында шығады.", noRecent: "Кез келген сабақты ашыңыз — ол осында шығады.",
       chooseSubject: "Пәнді таңдаңыз", chooseGrade: "Сыныпты таңдаңыз", openLesson: "Сабақты ашу",

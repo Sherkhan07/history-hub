@@ -14,7 +14,6 @@ import { TasksView } from "@/features/resources/components/tasks-view";
 import { CardsView } from "@/features/resources/components/cards-view";
 import { parseCards, parseHomework, parseTasks } from "@/features/resources/content";
 import { GameRunner, QuizRunner } from "@/features/games/components/activity-runner";
-import { LaunchForClassButton } from "@/features/sessions/components/launch-button";
 import type { ScorableQuestion } from "@/features/quizzes/scoring";
 import { fileUrl } from "@/lib/files";
 import { formatClock } from "@/lib/format";
@@ -153,8 +152,6 @@ export function PresentMode({ lesson, stages, isDefaultPlan, initialStage = 0 }:
     router.push(`/teacher/lesson/${lesson.id}`);
   };
 
-  const returnTo = `/teacher/lesson/${lesson.id}/present?stage=${stageIdx}`;
-
   return (
     <div ref={ref} className="stage-dark flex h-screen flex-col overflow-hidden bg-background text-foreground">
       {/* Top bar */}
@@ -237,7 +234,6 @@ export function PresentMode({ lesson, stages, isDefaultPlan, initialStage = 0 }:
                 kicker={fmt(t.present.quizKicker, { n: countLabel(quiz.questions.length, t.catalog.questions) })}
                 title={quiz.title}
                 onPlay={() => setOverlay({ kind: "quiz", id: quiz.id })}
-                launch={<LaunchForClassButton lessonId={lesson.id} quizId={quiz.id} title={quiz.title} size="lg" variant="secondary" returnTo={returnTo} />}
               />
             ) : game ? (
               <ActivityCard
@@ -246,7 +242,6 @@ export function PresentMode({ lesson, stages, isDefaultPlan, initialStage = 0 }:
                 title={game.title}
                 description={game.instructions}
                 onPlay={() => setOverlay({ kind: "game", id: game.id })}
-                launch={<LaunchForClassButton lessonId={lesson.id} gameId={game.id} title={game.title} size="lg" variant="secondary" teamOnly={game.type === "TEAM_BATTLE"} returnTo={returnTo} />}
               />
             ) : (
               <div className="flex h-full flex-col items-center justify-center gap-6 rounded-3xl border border-dashed text-center">
@@ -296,7 +291,7 @@ export function PresentMode({ lesson, stages, isDefaultPlan, initialStage = 0 }:
   );
 }
 
-function ActivityCard({ icon, kicker, title, description, onPlay, launch }: { icon: React.ReactNode; kicker: string; title: string; description?: string | null; onPlay: () => void; launch: React.ReactNode }) {
+function ActivityCard({ icon, kicker, title, description, onPlay }: { icon: React.ReactNode; kicker: string; title: string; description?: string | null; onPlay: () => void }) {
   const t = useDict();
   return (
     <div className="flex h-full flex-col items-center justify-center gap-6 rounded-3xl border bg-card p-10 text-center">
@@ -308,7 +303,6 @@ function ActivityCard({ icon, kicker, title, description, onPlay, launch }: { ic
       </div>
       <div className="flex flex-wrap justify-center gap-3">
         <Button size="xl" onClick={onPlay}><Play /> {t.present.openOnBoard}</Button>
-        {launch}
       </div>
     </div>
   );
