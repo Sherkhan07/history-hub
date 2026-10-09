@@ -5,7 +5,7 @@ import { DEMO_LESSONS_6 } from "../prisma/data/demo-lessons-6";
 import { TEXTBOOK_6_CHAPTERS } from "../prisma/data/textbook-6";
 
 /** Slides per deck 6-N.pptx */
-const SLIDES: Record<number, number> = { 1: 15, 2: 15, 3: 20, 4: 15, 5: 15, 6: 15, 7: 20, 8: 15, 9: 15, 10: 20, 11: 20, 12: 20, 13: 15, 14: 15, 15: 15, 16: 15, 17: 15, 18: 15, 19: 15, 20: 15 };
+const SLIDES: Record<number, number> = { 1: 15, 2: 15, 3: 20, 4: 15, 5: 15, 6: 15, 7: 20, 8: 15, 9: 15, 10: 20, 11: 20, 12: 20, 13: 15, 14: 15, 15: 15, 16: 15, 17: 15, 18: 15, 19: 15, 20: 15, 21: 15, 22: 15, 23: 15, 24: 16, 25: 15 };
 
 describe("grade 6 demo lessons", () => {
   it("one lesson per deck, numbered like the deck", () => {
