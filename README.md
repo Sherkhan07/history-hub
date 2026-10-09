@@ -1,36 +1,204 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# History Hub
 
-## Getting Started
+Платформа для учителей истории Казахстана и всемирной истории (5–11 классы).
+Учитель за 20–30 секунд находит урок и получает готовый комплект на 45 минут: презентацию, задания, карточки, тест, игры и сценарий урока для проектора.
 
-First, run the development server:
+Главная сущность — **урок**. Файлы, тесты, игры и этапы урока привязаны к нему.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+```
+Класс → Предмет → Четверть → Раздел → Урок → готовые материалы
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Возможности
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| Роль | Что может |
+| --- | --- |
+| **Учитель** | Каталог по классам и четвертям. Страница урока: исследовательский вопрос, цели обучения, материалы. Режим «Начать урок» на весь экран с этапами и таймерами. Просмотр слайдов, печать заданий, ZIP со всеми материалами, тесты и игры на доске, запуск игры для класса по PIN и QR-коду. Избранное, недавние уроки, поиск |
+| **Модератор** | Создание уроков. Редактор по вкладкам: основное, цели, материалы (drag & drop, прогресс загрузки, порядок, замена файла новой версией), задания, карточки, домашнее задание, тест (5 типов вопросов), игры (8 типов), сценарий урока, предпросмотр, история. Отправка на проверку |
+| **Старший модератор** (`canReview`) | То же, плюс одобрение или возврат на доработку |
+| **Администратор** | Пользователи (создание, роли, блокировка, ссылка сброса пароля). Предметы, классы, программы, четверти, разделы. Публикация, снятие с публикации, архив. Аналитика, журнал действий, настройки |
+| **Ученик** | Без регистрации: `/join` → PIN + имя → играет с телефона |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+**Workflow модерации:** `DRAFT → IN_REVIEW → APPROVED → PUBLISHED`, а также `REJECTED` (с комментарием) и `ARCHIVED`. Учитель видит только `PUBLISHED`. При отправке на проверку и при публикации сохраняется снимок урока (`ContentVersion`). Все действия пишутся в `AuditLog`.
 
-## Learn More
+**Игры** — единый реестр: `TIMELINE`, `MAP_POINT` (карта Казахстана), `MATCHING`, `WHO_AM_I`, `TRUE_FALSE`, `HISTORICAL_DETECTIVE`, `ARTIFACT`, `TEAM_BATTLE` (команда A против B). Каждый тип состоит из zod-схемы, проекции для учеников без правильных ответов, функции проверки, Player и Editor. Новый тип добавляется в трёх местах (см. `src/features/games/definitions.ts`).
 
-To learn more about Next.js, take a look at the following resources:
+**Живые сессии:** PIN из 6 цифр, QR-код, опрос сервера (без WebSocket — работает на любом хостинге). Ответы проверяются только на сервере, за скорость начисляется бонус, есть таблица лидеров и командный счёт.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Язык интерфейса
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Интерфейс полностью на казахском языке. Все строки собраны в `src/i18n/messages/*` (у каждой области рядом `kk` и `ru`; TypeScript требует полный перевод). Язык закреплён в `src/i18n/index.ts` (`UI_LOCALE = "kk"`) — чтобы вернуть русский или переключатель, достаточно изменить эту функцию. Названия предметов и их описания хранятся на двух языках (`nameKk`, `descriptionKk`), серверные ошибки переводятся через ключи `msg.*`.
 
-## Deploy on Vercel
+## Стек
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- **Next.js 16** (App Router, Server Components, Server Actions, `proxy.ts`), **React 19**, **TypeScript strict**
+- **Tailwind CSS 4** + **shadcn/ui** (Radix), lucide-иконки
+- **PostgreSQL** + **Prisma 7** (driver adapter `@prisma/adapter-pg`)
+- **zod** для валидации, **sharp** для превью, **jszip** для разбора PPTX и ZIP-выгрузки, **qrcode**
+- **Vitest** для тестов
+- Авторизация собственная: bcrypt + сессии в БД с httpOnly-cookie. Так блокировка пользователя срабатывает сразу, а отдельная auth-система не нужна
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Переменные окружения
+
+Скопируйте `.env.example` → `.env`.
+
+| Переменная | Назначение |
+| --- | --- |
+| `DATABASE_URL` | строка подключения PostgreSQL |
+| `APP_URL` | публичный адрес. Используется в QR-коде и ссылках сброса пароля. Для урока в школьной сети укажите LAN-адрес, например `http://192.168.1.10:3000` |
+| `STORAGE_DRIVER` | `local` (по умолчанию) или `s3` |
+| `STORAGE_LOCAL_DIR` | папка для файлов при `local` (`./storage`) |
+| `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | любое S3-совместимое хранилище: AWS S3, Cloudflare R2, Supabase Storage (S3 API), MinIO |
+| `SOFFICE_PATH` | *необязательно*: путь к LibreOffice `soffice` для PDF-превью текстовых PPTX и DOCX |
+| `MATERIALS_DIR` | папка с исходными материалами для сида (по умолчанию `..`) |
+| `SEED_ADMIN_PASSWORD`, `SEED_MODERATOR_PASSWORD`, `SEED_TEACHER_PASSWORD` | пароли демо-аккаунтов. Только для разработки, в git не попадают |
+
+## Локальный запуск
+
+```bash
+npm install                 # также выполняет prisma generate
+createdb history_hub        # или любой PostgreSQL 14+
+cp .env.example .env        # заполните DATABASE_URL и SEED_* пароли
+npm run db:migrate          # применить миграции
+npm run db:seed             # предметы, классы, демо-пользователи и реальные уроки
+npm run dev                 # http://localhost:3000
+```
+
+### Демо-аккаунты
+
+| Email | Роль | Пароль |
+| --- | --- | --- |
+| `admin@example.com` | ADMIN | `SEED_ADMIN_PASSWORD` из `.env` |
+| `moderator@example.com` | MODERATOR | `SEED_MODERATOR_PASSWORD` |
+| `teacher@example.com` | TEACHER | `SEED_TEACHER_PASSWORD` |
+
+Публичной регистрации нет: аккаунты создаёт администратор (`/admin/users`).
+
+## База данных
+
+```bash
+npm run db:migrate   # новая миграция после изменения prisma/schema.prisma
+npm run db:deploy    # применить миграции в продакшене
+npm run db:reset     # удалить всё, применить миграции и заново запустить сид
+npm run db:studio    # Prisma Studio
+```
+
+Основные сущности: `User`, `Session`, `PasswordResetToken` · `Subject`, `Grade`, `Curriculum` (предмет + класс + учебный год + язык), `Quarter`, `Section`, `Lesson`, `LearningObjective` · `Resource` (одна таблица на все типы материалов: файл, превью, ссылка или структурированный JSON для заданий, карточек и домашнего задания) · `Quiz`, `Question`, `AnswerOption` · `Game`, `GameItem` · `GameSession`, `SessionParticipant`, `SessionAnswer` · `Favorite`, `LessonView`, `LessonStage` · `ContentVersion`, `ModerationRequest`, `AuditLog`, `Setting`.
+
+## Сид и реальные материалы
+
+`npm run db:seed` читает файлы из `MATERIALS_DIR` (папка «платформа») и строит I четверть 5 класса по «Истории Казахстана»:
+
+- **49 презентаций** `5-1 … 5-50.pptx` (5-5 в папке нет) импортируются как есть. Уроки 5-11…5-20 лежат в `prisma/data/demo-lessons-2.ts`, 5-21…5-30 — в `demo-lessons-3.ts`, 5-31…5-50 — в `demo-lessons-4.ts`. Где на слайде нет ответа, он не придумывается, а помечается «талқылауға». Оригинал хранится без изменений, слайды-изображения извлекаются в WebP для просмотра.
+- **Содержимое уроков** — исследовательские вопросы, цели (5.1.1.1, 5.1.2.1, 5.2.2.6, 5.4.1.2), задания с ответами, карточки терминов, сценарий со ссылками на номера слайдов, игры (хронология, карта, сопоставление, «Кто я?», артефакты, командная битва) — перенесено со слайдов. Источник каждого факта указан в `prisma/data/demo-lessons.ts`.
+- **Тесты** взяты из банка вопросов с ответами в `5 сынып Қазақстан тарихы … .docx` (разбор: `prisma/data/textbook-questions.json`) и из заданий на слайдах.
+- **Ботай мәдениеті** (на месте отсутствующей 5-5) — черновик с тестом по §10. В нём есть пустые места, которые модератор заполнит сам. Два вопроса §10 с сомнительным ключом ответа исключены, чтобы модератор их проверил.
+- К вводному уроку приложены учебник (`130.pdf`) и сборник тестов (`.docx`).
+
+Сид идемпотентен: существующие уроки не перезаписываются.
+
+### Расстановка правильных ответов
+
+В данных верный вариант записан первым. При сидировании он переносится на стабильную псевдослучайную позицию (`prisma/data/spread.ts`), иначе верным всегда был бы первый вариант. На уже заполненной базе: `npm run answers:spread` (повторный запуск ничего не меняет).
+
+### Темы и тесты по учебнику (130.pdf)
+
+`prisma/data/textbook.ts` содержит полный список тем учебника «Қазақстан тарихы (Ежелгі заман), 5-сынып» (Мектеп, 2017): 7 разделов, §1–§64.
+
+- Названия тем и страницы взяты из оглавления. Цели («Бүгінгі сабақта»), тірек сөздер и вопросы «Біліміңді тексер!» / «Бекіту сұрақтары» переписаны из параграфов.
+- Каждый тестовый вопрос составлен по факту из текста параграфа, в пояснении указана страница.
+- Раздел → секция, параграф → урок, по порядку книги. Распределение по четвертям такое:
+  - I: разделы I–II;
+  - II: «Сақтар»;
+  - III: «Үйсіндер мен қаңлылар», «Ғұндар»;
+  - IV: «Сарматтар», «Шолу».
+- Параграфы, которые уже ведут уроки по презентациям, новыми уроками не дублируются. Их вопросы (не больше 12 на урок) добавляются в тест этих уроков; карта соответствий — `DEMO_LESSON_TOPICS`, порядок — `DEMO_LESSON_ORDER`.
+- Если такой параграф раньше уже был отдельным уроком, при следующем `db:seed` этот урок убирается. Это касается только неизменённых импортов без избранного и сессий.
+- У каждого урока есть ссылка «Оқулық: §N», которая открывает PDF сразу на нужной странице. Учебник хранится в одном экземпляре (`library/…`), доступ есть только у вошедших пользователей.
+
+На уже заполненной базе: `npm run textbook:import` (повторный запуск ничего не дублирует). После импорта перезапустите сервер или подождите час: каталог кешируется.
+
+## Превью презентаций
+
+Браузер не умеет показывать PPTX. Стратегия (`src/features/resources/server/process.ts`):
+
+1. Если каждый слайд — это полноэкранная картинка (NotebookLM, Canva, сканы), картинки извлекаются по порядку слайдов в WebP. Получается точный постраничный просмотр, полноэкранный режим и навигация с клавиатуры или кликера.
+2. Иначе, если задан `SOFFICE_PATH`, файл конвертируется в PDF через LibreOffice.
+3. Иначе показывается «Предпросмотр недоступен» и кнопка скачать оригинал.
+
+Хранятся оба варианта: `fileUrl` (оригинал) и `previewUrl` + `previewPages`. Пути версионируются (`…/v{n}/…`), поэтому замена файла не ломает кэш.
+
+## Тесты и проверки
+
+```bash
+npm run lint        # ESLint
+npm run typecheck   # next typegen && tsc --noEmit
+npm test            # Vitest: RBAC, workflow, игры, проверка ответов, PPTX, rate limit, демо-контент
+npm run build       # production-сборка
+npm run smoke       # при запущенном сервере: все страницы × 4 роли + RBAC и CSRF на API
+```
+
+## Безопасность
+
+- **RBAC на сервере:** `requireRole` в каждом layout, `authorize(permission)` в каждом server action, проверки в route handlers. `proxy.ts` — только быстрый редирект для гостей.
+- Учитель не видит черновики: ни страницы, ни заголовки, ни файлы. `/api/files` проверяет права на каждый файл.
+- Пароли хэшируются bcrypt (cost 12). Сессии в БД, cookie httpOnly + SameSite=Lax. Блокировка и смена роли сразу завершают сессии.
+- CSRF: server actions проверяют Origin средствами Next.js, JSON route handlers — через `assertSameOrigin`.
+- Rate limiting: вход, сброс пароля, `/join` (в том числе подбор PIN), ответы в игре.
+- Загрузки: whitelist расширений, проверка сигнатуры (magic bytes), лимит размера из настроек. Изображения перекодируются через sharp.
+- Ответы на тесты и игры не отправляются ученикам до раскрытия. Проверка ответов только на сервере.
+- Аудит: все действия администраторов и модераторов, входы, запуски игр.
+- Заголовки безопасности: `X-Frame-Options`, `nosniff`, `Referrer-Policy`, `Permissions-Policy`.
+
+> Rate limiter хранит счётчики в памяти одного процесса. Для нескольких инстансов замените хранилище на Redis или Upstash: сигнатура `rateLimit()` останется прежней.
+
+## Деплой
+
+**VPS (рекомендуется для школы):**
+
+```bash
+npm ci
+npm run db:deploy
+npm run build
+npm start                      # порт 3000, поставьте за nginx/caddy с HTTPS
+```
+
+Нужны PostgreSQL, Node 20+ и постоянный диск для `STORAGE_LOCAL_DIR` (или `STORAGE_DRIVER=s3`). Для PDF-превью текстовых презентаций установите LibreOffice и задайте `SOFFICE_PATH=/usr/bin/soffice`.
+
+**Vercel / serverless:** используйте `STORAGE_DRIVER=s3` (R2 или Supabase Storage) и управляемый Postgres (Supabase, Neon). Тяжёлые загрузки (до 100 МБ) лучше переложить на presigned URL — это следующий шаг. Живые сессии работают через опрос сервера, WebSocket не нужен.
+
+## Структура проекта
+
+```
+prisma/
+  schema.prisma              модель данных
+  migrations/
+  seed.ts                    сид
+  textbook-import.ts         импорт тем и тестов по учебнику
+  data/                      реальный контент: demo-lessons.ts, textbook.ts, textbook-questions.json
+scripts/smoke.ts             смоук-тест маршрутов и прав
+src/
+  app/                       маршруты (App Router)
+    (auth)/                  login, forgot-password, reset-password
+    teacher/(shell)/         кабинет учителя: главная, класс, урок, поиск, избранное, недавние
+    teacher/(focus)/         полноэкранные: present, resource, quiz, game, sessions/[id]
+    moderator/               кабинет модератора и редактор урока
+    admin/                   админ-панель
+    join/, session/[pin]/    ученики
+    api/                     files, uploads, lessons/[id]/resources|download, play/*, sessions/*
+  components/
+    ui/                      shadcn/ui
+    common/                  бейджи, пустые состояния, диалоги подтверждения, формы
+    layout/                  оболочки, навигация, меню пользователя, поиск
+  features/                  доменные модули
+    auth/  curriculum/  lessons/  resources/  quizzes/  games/  sessions/  moderation/  users/  admin/
+  i18n/                      словари ru/kk (kk откатывается на ru), провайдер
+  lib/                       db, env, форматирование, утилиты
+  server/                    auth (сессии, RBAC), storage (local/S3), audit, rate-limit, cache, settings
+tests/                       Vitest
+```
+
+## Что дальше
+
+- Presigned-загрузки в S3 для serverless-деплоя.
+- Отправка писем со ссылкой сброса пароля. Сейчас запрос виден администратору в журнале действий, а ссылку он создаёт в карточке пользователя. В режиме разработки ссылка печатается в консоль сервера.

@@ -1,0 +1,10 @@
+export const GRADES = [5, 6, 7, 8, 9, 10, 11] as const;
+export const QUARTERS = [1, 2, 3, 4] as const;
+export const DEFAULT_ACADEMIC_YEAR = "2026/2027";
+export const LESSON_DEFAULT_DURATION = 45;
+export const SUPPORTED_LOCALES = ["ru", "kk"] as const;
+export type Locale = (typeof SUPPORTED_LOCALES)[number];
+export const CONTENT_LANGUAGES = ["kk", "ru"] as const;
+export const SESSION_COOKIE = "hh_session";
+export const LOCALE_COOKIE = "hh_locale";
+export const PARTICIPANT_COOKIE_PREFIX = "hh_p_";

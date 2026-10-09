@@ -1,0 +1,573 @@
+// HISTORY HUB — database schema
+// Central entity: Lesson. Everything a teacher needs for a 45-minute lesson hangs off it.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────────────────────────────────────────
+// Users & auth
+// ─────────────────────────────────────────────────────────────
+
+enum Role {
+  ADMIN
+  MODERATOR
+  TEACHER
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  name         String
+  passwordHash String
+  role         Role
+  /// Senior moderator: may approve / reject lessons in review
+  canReview    Boolean   @default(false)
+  isBlocked    Boolean   @default(false)
+  locale       String    @default("ru")
+  school       String?
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  sessions          Session[]
+  resetTokens       PasswordResetToken[]
+  lessonsCreated    Lesson[]             @relation("LessonCreatedBy")
+  lessonsUpdated    Lesson[]             @relation("LessonUpdatedBy")
+  resources         Resource[]
+  favorites         Favorite[]
+  views             LessonView[]
+  gameSessions      GameSession[]
+  submittedRequests ModerationRequest[]  @relation("ModerationSubmitter")
+  reviewedRequests  ModerationRequest[]  @relation("ModerationReviewer")
+  versions          ContentVersion[]
+  auditLogs         AuditLog[]
+
+  @@index([role])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  userAgent String?
+  ip        String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  tokenHash String    @unique
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Curriculum: Subject → Curriculum(grade, year) → Quarter → Section → Lesson
+// ─────────────────────────────────────────────────────────────
+
+model Subject {
+  id          String       @id @default(cuid())
+  slug        String       @unique
+  name        String
+  nameKk      String?
+  description String?
+  descriptionKk String?
+  /// Design token key, e.g. "kz" | "world"
+  accent      String       @default("kz")
+  sortOrder   Int          @default(0)
+  isActive    Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  curricula   Curriculum[]
+}
+
+model Grade {
+  id        String       @id @default(cuid())
+  number    Int          @unique
+  isActive  Boolean      @default(true)
+  curricula Curriculum[]
+}
+
+model Curriculum {
+  id           String    @id @default(cuid())
+  subjectId    String
+  subject      Subject   @relation(fields: [subjectId], references: [id], onDelete: Restrict)
+  gradeId      String
+  grade        Grade     @relation(fields: [gradeId], references: [id], onDelete: Restrict)
+  academicYear String
+  language     String    @default("kk")
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  quarters     Quarter[]
+
+  @@unique([subjectId, gradeId, academicYear, language])
+  @@index([subjectId, gradeId, isActive])
+}
+
+model Quarter {
+  id           String     @id @default(cuid())
+  curriculumId String
+  curriculum   Curriculum @relation(fields: [curriculumId], references: [id], onDelete: Cascade)
+  number       Int
+  title        String?
+  sections     Section[]
+
+  @@unique([curriculumId, number])
+}
+
+model Section {
+  id        String   @id @default(cuid())
+  quarterId String
+  quarter   Quarter  @relation(fields: [quarterId], references: [id], onDelete: Cascade)
+  title     String
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  lessons   Lesson[]
+
+  @@index([quarterId, sortOrder])
+}
+
+enum ContentStatus {
+  DRAFT
+  IN_REVIEW
+  APPROVED
+  PUBLISHED
+  REJECTED
+  ARCHIVED
+}
+
+model Lesson {
+  id               String        @id @default(cuid())
+  sectionId        String
+  section          Section       @relation(fields: [sectionId], references: [id], onDelete: Restrict)
+  lessonNumber     Int
+  title            String
+  description      String?
+  researchQuestion String?
+  keywords         String[]
+  durationMinutes  Int           @default(45)
+  language         String        @default("kk")
+  status           ContentStatus @default(DRAFT)
+  coverUrl         String?
+  publishedAt      DateTime?
+  createdById      String
+  createdBy        User          @relation("LessonCreatedBy", fields: [createdById], references: [id])
+  updatedById      String?
+  updatedBy        User?         @relation("LessonUpdatedBy", fields: [updatedById], references: [id])
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  objectives  LearningObjective[]
+  resources   Resource[]
+  quizzes     Quiz[]
+  games       Game[]
+  stages      LessonStage[]
+  favorites   Favorite[]
+  views       LessonView[]
+  versions    ContentVersion[]
+  moderation  ModerationRequest[]
+  sessions    GameSession[]
+
+  @@index([sectionId, lessonNumber])
+  @@index([status])
+  @@index([createdById])
+}
+
+model LearningObjective {
+  id        String @id @default(cuid())
+  lessonId  String
+  lesson    Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  code      String
+  text      String
+  sortOrder Int    @default(0)
+
+  @@index([lessonId])
+  @@index([code])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Resources — one universal table for every lesson material
+// ─────────────────────────────────────────────────────────────
+
+enum ResourceType {
+  PRESENTATION
+  WORKSHEET
+  TASK
+  CARDS
+  DOCUMENT
+  VIDEO
+  MAP
+  TEACHER_GUIDE
+  HOMEWORK
+  ADDITIONAL
+}
+
+enum PreviewKind {
+  NONE
+  IMAGES
+  PDF
+  VIDEO
+  EMBED
+}
+
+model Resource {
+  id           String        @id @default(cuid())
+  lessonId     String
+  lesson       Lesson        @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  type         ResourceType
+  title        String
+  description  String?
+  /// Storage key of the untouched original file (pptx/pdf/docx/…)
+  fileUrl      String?
+  originalName String?
+  mimeType     String?
+  fileSize     Int?
+  /// Storage key of the cover/first preview image
+  previewUrl   String?
+  previewKind  PreviewKind   @default(NONE)
+  /// Ordered storage keys of preview pages (slides as images)
+  previewPages String[]
+  pageCount    Int?
+  /// External link (e.g. video URL) when there is no file
+  externalUrl  String?
+  /// Structured content for TASK / CARDS / HOMEWORK (validated by zod in features/resources)
+  content      Json?
+  sortOrder    Int           @default(0)
+  language     String        @default("kk")
+  version      Int           @default(1)
+  status       ContentStatus @default(DRAFT)
+  createdById  String
+  createdBy    User          @relation(fields: [createdById], references: [id])
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  stages LessonStage[]
+
+  @@index([lessonId, sortOrder])
+  @@index([createdById])
+  @@index([type])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Quizzes
+// ─────────────────────────────────────────────────────────────
+
+enum QuestionType {
+  SINGLE_CHOICE
+  MULTIPLE_CHOICE
+  TRUE_FALSE
+  MATCHING
+  ORDERING
+}
+
+model Quiz {
+  id          String        @id @default(cuid())
+  lessonId    String
+  lesson      Lesson        @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  /// Seconds per question in live mode
+  timePerQuestion Int       @default(30)
+  sortOrder   Int           @default(0)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  questions   Question[]
+  stages      LessonStage[]
+  sessions    GameSession[]
+
+  @@index([lessonId])
+}
+
+model Question {
+  id          String         @id @default(cuid())
+  quizId      String
+  quiz        Quiz           @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  type        QuestionType
+  prompt      String
+  explanation String?
+  imageUrl    String?
+  points      Int            @default(100)
+  sortOrder   Int            @default(0)
+  options     AnswerOption[]
+
+  @@index([quizId, sortOrder])
+}
+
+/// SINGLE/MULTIPLE/TRUE_FALSE: text + isCorrect.
+/// MATCHING: text = left side, matchText = correct right side.
+/// ORDERING: text + correctOrder (0-based).
+model AnswerOption {
+  id           String   @id @default(cuid())
+  questionId   String
+  question     Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  text         String
+  isCorrect    Boolean  @default(false)
+  matchText    String?
+  correctOrder Int?
+  sortOrder    Int      @default(0)
+
+  @@index([questionId])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Games — type-specific shape lives in GameItem.data (zod, see features/games/registry)
+// ─────────────────────────────────────────────────────────────
+
+enum GameType {
+  TIMELINE
+  MAP_POINT
+  MATCHING
+  WHO_AM_I
+  TRUE_FALSE
+  HISTORICAL_DETECTIVE
+  ARTIFACT
+  TEAM_BATTLE
+}
+
+model Game {
+  id           String        @id @default(cuid())
+  lessonId     String
+  lesson       Lesson        @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  type         GameType
+  title        String
+  instructions String?
+  /// Game-level settings (e.g. TEAM_BATTLE inner round type)
+  config       Json?
+  sortOrder    Int           @default(0)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  items        GameItem[]
+  stages       LessonStage[]
+  sessions     GameSession[]
+
+  @@index([lessonId])
+}
+
+model GameItem {
+  id        String @id @default(cuid())
+  gameId    String
+  game      Game   @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  sortOrder Int    @default(0)
+  points    Int    @default(100)
+  data      Json
+
+  @@index([gameId, sortOrder])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Live sessions — students join by PIN, no accounts
+// ─────────────────────────────────────────────────────────────
+
+enum SessionKind {
+  QUIZ
+  GAME
+}
+
+enum SessionStatus {
+  LOBBY
+  ACTIVE
+  FINISHED
+}
+
+model GameSession {
+  id           String        @id @default(cuid())
+  teacherId    String
+  teacher      User          @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  lessonId     String
+  lesson       Lesson        @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  kind         SessionKind
+  quizId       String?
+  quiz         Quiz?         @relation(fields: [quizId], references: [id], onDelete: SetNull)
+  gameId       String?
+  game         Game?         @relation(fields: [gameId], references: [id], onDelete: SetNull)
+  pin          String
+  status       SessionStatus @default(LOBBY)
+  teamMode     Boolean       @default(false)
+  currentIndex Int           @default(0)
+  /// Correct answer of the current step is shown; answers are closed
+  revealed     Boolean       @default(false)
+  /// When the current question/item was shown (for timers and speed bonus)
+  stepStartedAt DateTime?
+  startedAt    DateTime?
+  endedAt      DateTime?
+  createdAt    DateTime      @default(now())
+
+  participants SessionParticipant[]
+  answers      SessionAnswer[]
+
+  @@index([pin, status])
+  @@index([teacherId])
+}
+
+model SessionParticipant {
+  id          String          @id @default(cuid())
+  sessionId   String
+  session     GameSession     @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  displayName String
+  /// "A" | "B" for team battle
+  team        String?
+  score       Int             @default(0)
+  tokenHash   String          @unique
+  joinedAt    DateTime        @default(now())
+  answers     SessionAnswer[]
+
+  @@unique([sessionId, displayName])
+  @@index([sessionId, score])
+}
+
+model SessionAnswer {
+  id            String             @id @default(cuid())
+  sessionId     String
+  session       GameSession        @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  participantId String
+  participant   SessionParticipant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  /// Question.id or GameItem.id
+  itemId        String
+  answer        Json
+  isCorrect     Boolean
+  points        Int                @default(0)
+  createdAt     DateTime           @default(now())
+
+  @@unique([participantId, itemId])
+  @@index([sessionId, itemId])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Teacher personalisation
+// ─────────────────────────────────────────────────────────────
+
+model Favorite {
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lessonId  String
+  lesson    Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@id([userId, lessonId])
+  @@index([userId, createdAt])
+}
+
+model LessonView {
+  id       String   @id @default(cuid())
+  userId   String
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lessonId String
+  lesson   Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  viewedAt DateTime @default(now())
+
+  @@index([userId, viewedAt])
+  @@index([lessonId, viewedAt])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Lesson scenario (presentation mode)
+// ─────────────────────────────────────────────────────────────
+
+enum StageActivity {
+  NONE
+  RESOURCE
+  QUIZ
+  GAME
+}
+
+model LessonStage {
+  id              String        @id @default(cuid())
+  lessonId        String
+  lesson          Lesson        @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  sortOrder       Int           @default(0)
+  title           String
+  description     String?
+  durationMinutes Int           @default(5)
+  activity        StageActivity @default(NONE)
+  resourceId      String?
+  resource        Resource?     @relation(fields: [resourceId], references: [id], onDelete: SetNull)
+  /// For presentations: slide range shown at this stage (1-based, inclusive)
+  slideFrom       Int?
+  slideTo         Int?
+  quizId          String?
+  quiz            Quiz?         @relation(fields: [quizId], references: [id], onDelete: SetNull)
+  gameId          String?
+  game            Game?         @relation(fields: [gameId], references: [id], onDelete: SetNull)
+
+  @@index([lessonId, sortOrder])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Moderation, versions, audit
+// ─────────────────────────────────────────────────────────────
+
+model ContentVersion {
+  id          String        @id @default(cuid())
+  lessonId    String
+  lesson      Lesson        @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  version     Int
+  status      ContentStatus
+  snapshot    Json
+  note        String?
+  createdById String
+  createdBy   User          @relation(fields: [createdById], references: [id])
+  createdAt   DateTime      @default(now())
+
+  @@unique([lessonId, version])
+}
+
+enum ModerationDecision {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model ModerationRequest {
+  id            String             @id @default(cuid())
+  lessonId      String
+  lesson        Lesson             @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  submittedById String
+  submittedBy   User               @relation("ModerationSubmitter", fields: [submittedById], references: [id])
+  submitNote    String?
+  reviewerId    String?
+  reviewer      User?              @relation("ModerationReviewer", fields: [reviewerId], references: [id])
+  decision      ModerationDecision @default(PENDING)
+  comment       String?
+  submittedAt   DateTime           @default(now())
+  reviewedAt    DateTime?
+
+  @@index([lessonId, submittedAt])
+  @@index([decision])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  actor      User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  action     String
+  entityType String
+  entityId   String?
+  metadata   Json?
+  ip         String?
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([entityType, entityId])
+  @@index([actorId])
+}
+
+model Setting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}
