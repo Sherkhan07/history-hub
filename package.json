@@ -18,7 +18,8 @@
     "smoke": "tsx scripts/smoke.ts",
     "media:rebuild": "tsx --conditions=react-server scripts/rebuild-media.ts",
     "textbook:import": "tsx --conditions=react-server scripts/import-textbook.ts",
-    "answers:spread": "tsx --conditions=react-server scripts/spread-answers.ts"
+    "answers:spread": "tsx --conditions=react-server scripts/spread-answers.ts",
+    "content:sync": "tsx --conditions=react-server scripts/sync-content.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1146.0",

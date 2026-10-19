@@ -20,6 +20,8 @@ import { storage } from "../src/server/storage";
 import { getDefinition } from "../src/features/games/definitions";
 import { ARTIFACT_CROPS, DEMO_LESSONS, type DemoLesson } from "./data/demo-lessons";
 import { DEMO_LESSONS_6 } from "./data/demo-lessons-6";
+import { DEMO_LESSONS_7 } from "./data/demo-lessons-7";
+import { GRADE_7_SECTIONS } from "./data/sections-7";
 import { TEXTBOOK_6_CHAPTERS, TEXTBOOK_6_FILE, TEXTBOOK_6_KEY, TEXTBOOK_6_NAME, TEXTBOOK_6_TITLE } from "./data/textbook-6";
 import { TEXTBOOK_CHAPTERS } from "./data/textbook";
 import { spreadGameItem } from "./data/spread";
@@ -121,6 +123,7 @@ async function seedArtifactImages() {
 async function seedDemoLessons(users: { ADMIN: string; MODERATOR: string }) {
   await seedGradeLessons(users, 5, DEMO_LESSONS, TEXTBOOK_CHAPTERS);
   await seedGradeLessons(users, 6, DEMO_LESSONS_6, TEXTBOOK_6_CHAPTERS);
+  await seedGradeLessons(users, 7, DEMO_LESSONS_7, GRADE_7_SECTIONS);
 }
 
 /** Stores the grade 6 textbook once and returns what a lesson needs to link a page range of it */
@@ -139,7 +142,7 @@ async function grade6Textbook() {
 
 async function seedGradeLessons(
   users: { ADMIN: string; MODERATOR: string },
-  grade: 5 | 6,
+  grade: 5 | 6 | 7,
   lessons: DemoLesson[],
   chapters: { title: string; quarter: 1 | 2 | 3 | 4 }[],
 ) {
